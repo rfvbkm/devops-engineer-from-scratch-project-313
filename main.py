@@ -1,4 +1,5 @@
 import os
+from contextlib import asynccontextmanager
 
 import sentry_sdk
 from fastapi import FastAPI, Request, status
@@ -6,6 +7,10 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse, Response
 from sentry_sdk.integrations.fastapi import FastApiIntegration
 from sentry_sdk.integrations.starlette import StarletteIntegration
+
+from config import init_config
+from database import init_db
+from routers.links import router as links_router
 
 
 def _init_sentry() -> None:
@@ -26,7 +31,15 @@ def _init_sentry() -> None:
 
 _init_sentry()
 
-app = FastAPI()
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    init_config()
+    init_db()
+    yield
+
+
+app = FastAPI(lifespan=lifespan)
 
 
 @app.exception_handler(RequestValidationError)
@@ -50,6 +63,9 @@ async def unhandled_exception_handler(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         content={"detail": "Internal server error"},
     )
+
+
+app.include_router(links_router, prefix="/api/links")
 
 
 @app.get("/ping")

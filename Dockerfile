@@ -9,7 +9,9 @@ RUN pip install --no-cache-dir uv
 ENV UV_COMPILE_BYTECODE=1 \
     UV_LINK_MODE=copy
 
-COPY pyproject.toml uv.lock main.py ./
+COPY pyproject.toml uv.lock ./
+COPY main.py config.py database.py models.py schemas.py ./
+COPY routers ./routers
 
 RUN uv sync --frozen --no-dev
 
@@ -21,7 +23,8 @@ ENV PYTHONUNBUFFERED=1 \
     PATH="/app/.venv/bin:$PATH"
 
 COPY --from=builder /app/.venv /app/.venv
-COPY main.py ./
+COPY main.py config.py database.py models.py schemas.py ./
+COPY routers ./routers
 
 RUN useradd --create-home --uid 1000 app \
     && chown -R app:app /app
