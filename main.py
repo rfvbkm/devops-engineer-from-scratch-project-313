@@ -6,7 +6,6 @@ from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse, Response
 from sentry_sdk.integrations.fastapi import FastApiIntegration
-from sentry_sdk.integrations.starlette import StarletteIntegration
 
 from config import init_config
 from database import init_db
@@ -19,16 +18,21 @@ def _init_sentry() -> None:
         return
     traces_raw = os.environ.get("SENTRY_TRACES_SAMPLE_RATE", "0").strip()
     traces_sample_rate = float(traces_raw or "0")
+    sentry_debug = os.environ.get("SENTRY_DEBUG", "").lower() in (
+        "1",
+        "true",
+        "yes",
+    )
     sentry_sdk.init(
         dsn=dsn.strip(),
-        integrations=[
-            StarletteIntegration(),
-            FastApiIntegration(),
-        ],
+        send_default_pii=True,
+        integrations=[FastApiIntegration()],
         traces_sample_rate=traces_sample_rate,
+        debug=sentry_debug,
     )
 
 
+init_config()
 _init_sentry()
 
 
@@ -37,6 +41,7 @@ async def lifespan(_app: FastAPI):
     init_config()
     init_db()
     yield
+    sentry_sdk.flush(timeout=2.0)
 
 
 app = FastAPI(lifespan=lifespan)
