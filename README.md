@@ -12,6 +12,8 @@
 
 Минимальное веб-приложение на **FastAPI**: точка входа — модуль `main.py` с объектом ASGI-приложения `app`, сервер **uvicorn**. Маршрут `GET /ping` отвечает телом `pong` (текст). Для ошибок валидации и неперехваченных исключений заданы обработчики с корректными HTTP-статусами (422 и 500). Линтер **Ruff** настраивается в `ruff.toml` (одинаково локально и в CI). Автоматические проверки — workflow **CI** (pytest и Ruff).
 
+Мониторинг ошибок — **[Sentry](https://sentry.io/)**: при заданной переменной окружения **`SENTRY_DSN`** при старте вызывается `sentry_sdk.init` (интеграции Starlette и FastAPI). Собственный обработчик 500 отправляет исключение в Sentry через `capture_exception`.
+
 ## Требования
 
 - [Python](https://www.python.org/) 3.10+
@@ -32,6 +34,15 @@ make install
 make run
 # эквивалент: uv run uvicorn main:app --host 0.0.0.0 --port 8080
 ```
+
+С Sentry (значение DSN возьмите из настроек проекта в Sentry, не коммитьте в git):
+
+```bash
+export SENTRY_DSN='https://<ключ>@<host>/<project_id>'
+make run
+```
+
+В Docker: `docker run -e SENTRY_DSN -p 8080:8080 …`.
 
 После старта проверка маршрута:
 
