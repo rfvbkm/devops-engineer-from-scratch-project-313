@@ -18,14 +18,14 @@
 
 Мониторинг ошибок — **[Sentry](https://sentry.io/)**: при заданной переменной окружения **`SENTRY_DSN`** при старте вызывается `sentry_sdk.init` (интеграции Starlette и FastAPI). Собственный обработчик 500 отправляет исключение в Sentry через `capture_exception`.
 
-**База и API сокращателя ссылок:** данные хранятся в **PostgreSQL**. При старте приложения вызывается `SQLModel.metadata.create_all` (создание таблиц при каждом запуске). REST API под префиксом **`/api/links`** (список, создание, чтение, обновление, удаление). **`POST /api/links`** при успехе возвращает **201** и тело **`undefined`** (строка, `text/plain`). Поле **`short_url`** в JSON-ответах остальных методов собирается как `{SHORT_LINK_BASE}/{short_name}`.
+**База и API сокращателя ссылок:** данные хранятся в **PostgreSQL**. При старте приложения вызывается `SQLModel.metadata.create_all` (создание таблиц при каждом запуске). REST API под префиксом **`/api/links`** (список, создание, чтение, обновление, удаление). Поле **`short_url`** собирается как `{SHORT_LINK_BASE}/{short_name}`.
 
 Обязательные переменные окружения:
 
 - **`DATABASE_URL`** — строка подключения к PostgreSQL (поддерживается префикс `postgres://`, он нормализуется в `postgresql://`), пример: `postgres://user:pass@host:5432/dbname?sslmode=disable`.
 - **`SHORT_LINK_BASE`** — базовый URL без завершающего слэша, например `https://short.io/r` (итоговый `short_url`: `https://short.io/r/<short_name>`).
 
--## Требования
+## Требования
 
 - [Python](https://www.python.org/) 3.10+
 - [uv](https://docs.astral.sh/uv/) для зависимостей и запуска

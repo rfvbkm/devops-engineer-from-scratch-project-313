@@ -28,11 +28,15 @@ def list_links(session: Session = Depends(get_session)) -> list[LinkRead]:
     return [to_link_read(link) for link in links]
 
 
-@router.post("", status_code=status.HTTP_201_CREATED)
+@router.post(
+    "",
+    response_model=LinkRead,
+    status_code=status.HTTP_201_CREATED,
+)
 def create_link(
     body: LinkCreate,
     session: Session = Depends(get_session),
-) -> Response:
+) -> LinkRead:
     link = Link(original_url=body.original_url, short_name=body.short_name)
     session.add(link)
     try:
@@ -43,11 +47,8 @@ def create_link(
             status_code=status.HTTP_409_CONFLICT,
             detail="Short name already exists",
         ) from None
-    return Response(
-        content="undefined",
-        media_type="text/plain; charset=utf-8",
-        status_code=status.HTTP_201_CREATED,
-    )
+    session.refresh(link)
+    return to_link_read(link)
 
 
 @router.get("/{link_id}", response_model=LinkRead)
