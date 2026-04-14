@@ -8,6 +8,10 @@
 
 [![CI](https://github.com/rfvbkm/devops-engineer-from-scratch-project-313/actions/workflows/ci.yml/badge.svg)](https://github.com/rfvbkm/devops-engineer-from-scratch-project-313/actions/workflows/ci.yml)
 
+## Деплой (Render)
+
+Приложение: [https://devops-engineer-from-scratch-project-313-q6m6.onrender.com](https://devops-engineer-from-scratch-project-313-q6m6.onrender.com) — проверка: [GET /ping](https://devops-engineer-from-scratch-project-313-q6m6.onrender.com/ping).
+
 ## О проекте
 
 Минимальное веб-приложение на **FastAPI**: точка входа — модуль `main.py` с объектом ASGI-приложения `app`, сервер **uvicorn**. Маршрут `GET /ping` отвечает телом `pong` (текст). Для ошибок валидации и неперехваченных исключений заданы обработчики с корректными HTTP-статусами (422 и 500). Линтер **Ruff** настраивается в `ruff.toml` (одинаково локально и в CI). Автоматические проверки — workflow **CI** (pytest и Ruff).
