@@ -1,8 +1,21 @@
+FRAMEWORK ?= devops-deploy-crud
+
 install:
 	uv sync --all-groups
+	npm install
+
+run-backend:
+	uv run uvicorn main:app --host 0.0.0.0 --port 8080
+
+run-frontend:
+	npx start-hexlet-$(FRAMEWORK)-frontend
 
 run:
-	uv run uvicorn main:app --host 0.0.0.0 --port 8080
+	npx concurrently \
+		--names backend,frontend \
+		--prefix-colors blue,green \
+		"make run-backend" \
+		"make run-frontend FRAMEWORK=$(FRAMEWORK)"
 
 lint:
 	uv run ruff check .

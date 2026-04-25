@@ -1,10 +1,10 @@
 # devops-engineer-from-scratch-project-313
 
-### Hexlet tests and linter status
+## Hexlet tests and linter status
 
 [![Actions Status](https://github.com/rfvbkm/devops-engineer-from-scratch-project-313/actions/workflows/hexlet-check.yml/badge.svg)](https://github.com/rfvbkm/devops-engineer-from-scratch-project-313/actions)
 
-### CI (pytest, Ruff)
+## CI (pytest, Ruff)
 
 [![CI](https://github.com/rfvbkm/devops-engineer-from-scratch-project-313/actions/workflows/ci.yml/badge.svg)](https://github.com/rfvbkm/devops-engineer-from-scratch-project-313/actions/workflows/ci.yml)
 
@@ -29,6 +29,7 @@
 
 - [Python](https://www.python.org/) 3.10+
 - [uv](https://docs.astral.sh/uv/) для зависимостей и запуска
+- [Node.js](https://nodejs.org/) 20+ для запуска фронтенда и `concurrently`
 - [PostgreSQL](https://www.postgresql.org/) для работы приложения с данными (в тестах используется SQLite в памяти)
 
 ## Установка и запуск
@@ -38,16 +39,25 @@
 ```bash
 make install
 # эквивалент: uv sync --all-groups
+npm install
 ```
 
-**Запуск HTTP-сервера** на порту **8080** (слушает на всех интерфейсах). Перед запуском задайте **`DATABASE_URL`** и **`SHORT_LINK_BASE`** (или пропишите их в `.env`):
+**Запуск только бэкенда** на порту **8080** (слушает на всех интерфейсах). Перед запуском задайте **`DATABASE_URL`** и **`SHORT_LINK_BASE`** (или пропишите их в `.env`):
 
 ```bash
 export DATABASE_URL='postgres://postgres:password@localhost:5432/appdb?sslmode=disable'
 export SHORT_LINK_BASE='https://example.com/r'
-make run
+make run-backend
 # эквивалент: uv run uvicorn main:app --host 0.0.0.0 --port 8080
 ```
+
+**Совместный запуск бэкенда (8080) и фронтенда (5173)** через `concurrently`:
+
+```bash
+make run FRAMEWORK=devops-deploy-crud
+```
+
+Фронтенд будет доступен на [http://localhost:5173/](http://localhost:5173/). Этот запуск нужен только для локальной проверки; в продакшене UI будет раздаваться веб-сервером. На бэкенде включен CORS для origin `http://localhost:5173`.
 
 С Sentry (значение DSN возьмите из настроек проекта в Sentry, не коммитьте в git):
 

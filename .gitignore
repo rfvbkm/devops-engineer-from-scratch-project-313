@@ -19,3 +19,4 @@ coverage.xml
 *.7z
 *.bz2
 *.gz
+node_modules
