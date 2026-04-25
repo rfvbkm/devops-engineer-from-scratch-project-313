@@ -1,4 +1,10 @@
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+import json
+from typing import Optional
+
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from fastapi.encoders import jsonable_encoder
+from fastapi.responses import JSONResponse
+from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
@@ -8,6 +14,38 @@ from models import Link
 from schemas import LinkCreate, LinkRead, LinkUpdate
 
 router = APIRouter()
+
+
+def _parse_range(range_param: Optional[str]) -> Optional[tuple[int, int]]:
+    if range_param is None:
+        return None
+    try:
+        raw = json.loads(range_param)
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=422, detail="Invalid range") from None
+    if not isinstance(raw, list) or len(raw) != 2:
+        raise HTTPException(status_code=422, detail="Invalid range")
+    start, end = raw
+    if type(start) is not int or type(end) is not int:
+        raise HTTPException(status_code=422, detail="Invalid range")
+    if start < 0 or end <= start:
+        raise HTTPException(status_code=422, detail="Invalid range")
+    return (start, end)
+
+
+def _content_range(
+    total: int,
+    *,
+    had_range: bool,
+    start: int,
+    n: int,
+) -> str:
+    if n == 0:
+        return f"links */{total}"
+    if had_range:
+        last = start + n - 1
+        return f"links {start}-{last}/{total}"
+    return f"links 0-{n - 1}/{total}"
 
 
 def to_link_read(link: Link) -> LinkRead:
@@ -21,11 +59,29 @@ def to_link_read(link: Link) -> LinkRead:
     )
 
 
-@router.get("", response_model=list[LinkRead])
-def list_links(session: Session = Depends(get_session)) -> list[LinkRead]:
+@router.get("")
+def list_links(
+    session: Session = Depends(get_session),
+    range_param: Optional[str] = Query(default=None, alias="range"),
+) -> JSONResponse:
+    bounds = _parse_range(range_param)
+    count_stmt = select(func.count(Link.id))
+    total = session.exec(count_stmt).one()
+
     stmt = select(Link).order_by(Link.id)
-    links = session.exec(stmt).all()
-    return [to_link_read(link) for link in links]
+    start = 0
+    if bounds is not None:
+        start, end = bounds
+        stmt = stmt.offset(start).limit(end - start)
+
+    rows = list(session.exec(stmt).all())
+    payload = [to_link_read(link) for link in rows]
+    n = len(payload)
+    cr = _content_range(total, had_range=bounds is not None, start=start, n=n)
+    return JSONResponse(
+        content=jsonable_encoder(payload),
+        headers={"Content-Range": cr},
+    )
 
 
 @router.post(

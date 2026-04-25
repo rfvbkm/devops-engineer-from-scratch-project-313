@@ -5,6 +5,7 @@ def test_list_links_empty(client: TestClient) -> None:
     r = client.get("/api/links")
     assert r.status_code == 200
     assert r.json() == []
+    assert r.headers.get("Content-Range") == "links */0"
 
 
 def test_create_link_201(client: TestClient) -> None:
@@ -42,6 +43,7 @@ def test_list_links_after_create(client: TestClient) -> None:
     )
     r = client.get("/api/links")
     assert r.status_code == 200
+    assert r.headers.get("Content-Range") == "links 0-0/1"
     items = r.json()
     assert len(items) == 1
     assert items[0]["short_url"] == "https://short.io/r/exmpl"
@@ -130,3 +132,74 @@ def test_delete_link_404(client: TestClient) -> None:
     r = client.delete("/api/links/999")
     assert r.status_code == 404
     assert r.json() == {"detail": "Link not found"}
+
+
+def test_list_links_pagination_first_page(client: TestClient) -> None:
+    for i in range(11):
+        client.post(
+            "/api/links",
+            json={
+                "original_url": f"https://example.com/{i}",
+                "short_name": f"s{i}",
+            },
+        )
+    r = client.get("/api/links", params={"range": "[0,10]"})
+    assert r.status_code == 200
+    assert r.headers.get("Content-Range") == "links 0-9/11"
+    items = r.json()
+    assert len(items) == 10
+    assert [x["id"] for x in items] == list(range(1, 11))
+
+
+def test_list_links_pagination_slice(client: TestClient) -> None:
+    for i in range(11):
+        client.post(
+            "/api/links",
+            json={
+                "original_url": f"https://example.com/{i}",
+                "short_name": f"s{i}",
+            },
+        )
+    r = client.get("/api/links", params={"range": "[5,10]"})
+    assert r.status_code == 200
+    assert r.headers.get("Content-Range") == "links 5-9/11"
+    items = r.json()
+    assert len(items) == 5
+    assert [x["id"] for x in items] == [6, 7, 8, 9, 10]
+
+
+def test_list_links_range_beyond_data(client: TestClient) -> None:
+    client.post(
+        "/api/links",
+        json={"original_url": "https://a.com", "short_name": "a"},
+    )
+    r = client.get("/api/links", params={"range": "[100,200]"})
+    assert r.status_code == 200
+    assert r.headers.get("Content-Range") == "links */1"
+    assert r.json() == []
+
+
+def test_list_links_invalid_range_json(client: TestClient) -> None:
+    r = client.get("/api/links", params={"range": "not-json"})
+    assert r.status_code == 422
+    assert r.json() == {"detail": "Invalid range"}
+
+
+def test_list_links_invalid_range_not_pair(client: TestClient) -> None:
+    r = client.get("/api/links", params={"range": "[0]"})
+    assert r.status_code == 422
+    assert r.json() == {"detail": "Invalid range"}
+
+
+def test_list_links_invalid_range_end_not_greater_than_start(
+    client: TestClient,
+) -> None:
+    r = client.get("/api/links", params={"range": "[5,5]"})
+    assert r.status_code == 422
+    assert r.json() == {"detail": "Invalid range"}
+
+
+def test_list_links_invalid_range_negative_start(client: TestClient) -> None:
+    r = client.get("/api/links", params={"range": "[-1,5]"})
+    assert r.status_code == 422
+    assert r.json() == {"detail": "Invalid range"}
