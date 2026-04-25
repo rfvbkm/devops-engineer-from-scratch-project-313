@@ -1,5 +1,10 @@
 # syntax=docker/dockerfile:1
 
+FROM node:20-bookworm-slim AS frontend
+WORKDIR /frontend
+COPY package.json package-lock.json ./
+RUN npm ci
+
 FROM python:3.10-slim-bookworm AS builder
 
 WORKDIR /app
@@ -17,20 +22,31 @@ RUN uv sync --frozen --no-dev
 
 FROM python:3.10-slim-bookworm
 
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends nginx gettext-base \
+    && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 
 ENV PYTHONUNBUFFERED=1 \
-    PATH="/app/.venv/bin:$PATH"
+    PATH="/app/.venv/bin:$PATH" \
+    PORT=80
 
 COPY --from=builder /app/.venv /app/.venv
 COPY main.py config.py database.py models.py schemas.py ./
 COPY routers ./routers
 
+COPY --from=frontend /frontend/node_modules/@hexlet/project-devops-deploy-crud-frontend/dist/. /app/public/
+
+COPY docker-entrypoint.sh /docker-entrypoint.sh
+COPY nginx/default.conf.template /etc/nginx/templates/default.conf.template
+
 RUN useradd --create-home --uid 1000 app \
-    && chown -R app:app /app
+    && chown -R app:app /app \
+    && chmod -R a+rX /app/public \
+    && chmod +x /docker-entrypoint.sh \
+    && rm -f /etc/nginx/sites-enabled/default
 
-USER app
+EXPOSE 80
 
-EXPOSE 8080
-
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8080"]
+ENTRYPOINT ["/docker-entrypoint.sh"]
