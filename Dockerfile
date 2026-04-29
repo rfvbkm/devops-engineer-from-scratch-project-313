@@ -1,28 +1,32 @@
 # syntax=docker/dockerfile:1
 
+ARG PYTHON_VERSION=3.10
+
 FROM node:20-bookworm-slim AS frontend
 WORKDIR /frontend
 COPY package.json package-lock.json ./
 RUN npm ci
 
-FROM python:3.10-slim-bookworm AS builder
+FROM python:${PYTHON_VERSION}-slim-bookworm AS builder
 
 WORKDIR /app
 
-RUN pip install --no-cache-dir uv
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install uv
 
 ENV UV_COMPILE_BYTECODE=1 \
     UV_LINK_MODE=copy
 
 COPY pyproject.toml uv.lock ./
-COPY main.py config.py database.py models.py schemas.py ./
-COPY routers ./routers
 
-RUN uv sync --frozen --no-dev
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --frozen --no-dev --no-install-project
 
-FROM python:3.10-slim-bookworm
+FROM python:${PYTHON_VERSION}-slim-bookworm
 
-RUN apt-get update \
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    apt-get update \
     && apt-get install -y --no-install-recommends nginx gettext-base \
     && rm -rf /var/lib/apt/lists/*
 
