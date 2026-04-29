@@ -3,8 +3,8 @@ from collections.abc import Generator
 from sqlalchemy.pool import StaticPool
 from sqlmodel import Session, SQLModel, create_engine
 
-from config import get_database_url
-from models import Link  # noqa: F401 — регистрация таблицы links
+from .config import get_database_url
+from .models import Link  # noqa: F401 — регистрация таблицы links
 
 _engine = None
 

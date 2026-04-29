@@ -2,15 +2,17 @@ import os
 from contextlib import asynccontextmanager
 
 import sentry_sdk
-from fastapi import FastAPI, Request, status
+from fastapi import Depends, FastAPI, HTTPException, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, Response
+from fastapi.responses import JSONResponse, RedirectResponse, Response
 from sentry_sdk.integrations.fastapi import FastApiIntegration
+from sqlmodel import Session, select
 
-from config import init_config
-from database import init_db
-from routers.links import router as links_router
+from .config import init_config
+from .database import get_session, init_db
+from .models import Link
+from .routers.links import router as links_router
 
 
 def _init_sentry() -> None:
@@ -79,6 +81,21 @@ async def unhandled_exception_handler(
 
 
 app.include_router(links_router, prefix="/api/links")
+
+
+@app.get("/r/{short_name}")
+def redirect_short_link(
+    short_name: str,
+    session: Session = Depends(get_session),
+) -> RedirectResponse:
+    stmt = select(Link).where(Link.short_name == short_name)
+    link = session.exec(stmt).first()
+    if link is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Link not found",
+        )
+    return RedirectResponse(url=link.original_url, status_code=307)
 
 
 @app.get("/ping")

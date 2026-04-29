@@ -8,12 +8,12 @@ os.environ["SENTRY_DSN"] = ""
 import pytest
 from fastapi.testclient import TestClient
 
-from database import init_db, reset_engine
+from backend.database import init_db, reset_engine
 
 
 @pytest.fixture
 def client() -> TestClient:
-    from main import app
+    from backend.main import app
 
     return TestClient(app)
 

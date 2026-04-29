@@ -5,7 +5,7 @@ install:
 	npm install
 
 run-backend:
-	uv run uvicorn main:app --host 0.0.0.0 --port 8080
+	uv run uvicorn backend.main:app --host 0.0.0.0 --port 8080
 
 run-frontend:
 	npx start-hexlet-$(FRAMEWORK)-frontend

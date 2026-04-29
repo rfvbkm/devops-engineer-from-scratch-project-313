@@ -37,8 +37,7 @@ ENV PYTHONUNBUFFERED=1 \
     PORT=80
 
 COPY --from=builder /app/.venv /app/.venv
-COPY main.py config.py database.py models.py schemas.py ./
-COPY routers ./routers
+COPY backend ./backend
 
 COPY --from=frontend /frontend/node_modules/@hexlet/project-devops-deploy-crud-frontend/dist/. /app/public/
 

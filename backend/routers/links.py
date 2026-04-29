@@ -8,10 +8,10 @@ from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
-from config import get_short_link_base
-from database import get_session
-from models import Link
-from schemas import LinkCreate, LinkRead, LinkUpdate
+from ..config import get_short_link_base
+from ..database import get_session
+from ..models import Link
+from ..schemas import LinkCreate, LinkRead, LinkUpdate
 
 router = APIRouter()
 
@@ -28,7 +28,7 @@ def _parse_range(range_param: Optional[str]) -> Optional[tuple[int, int]]:
     start, end = raw
     if type(start) is not int or type(end) is not int:
         raise HTTPException(status_code=422, detail="Invalid range")
-    if start < 0 or end <= start:
+    if start < 0 or end < start:
         raise HTTPException(status_code=422, detail="Invalid range")
     return (start, end)
 
@@ -72,7 +72,7 @@ def list_links(
     start = 0
     if bounds is not None:
         start, end = bounds
-        stmt = stmt.offset(start).limit(end - start)
+        stmt = stmt.offset(start).limit(end - start + 1)
 
     rows = list(session.exec(stmt).all())
     payload = [to_link_read(link) for link in rows]
