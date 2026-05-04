@@ -4,13 +4,11 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
-from sqlalchemy import func
-from sqlalchemy.exc import IntegrityError
-from sqlmodel import Session, select
 
 from ..config import get_short_link_base
-from ..database import get_session
+from ..dependencies import get_link_repository
 from ..models import Link
+from ..repositories.links import DuplicateShortNameError, LinkRepository
 from ..schemas import LinkCreate, LinkRead, LinkUpdate
 
 router = APIRouter()
@@ -61,20 +59,19 @@ def to_link_read(link: Link) -> LinkRead:
 
 @router.get("")
 def list_links(
-    session: Session = Depends(get_session),
+    repo: LinkRepository = Depends(get_link_repository),
     range_param: Optional[str] = Query(default=None, alias="range"),
 ) -> JSONResponse:
     bounds = _parse_range(range_param)
-    count_stmt = select(func.count(Link.id))
-    total = session.exec(count_stmt).one()
+    total = repo.count_links()
 
-    stmt = select(Link).order_by(Link.id)
     start = 0
+    limit: Optional[int] = None
     if bounds is not None:
         start, end = bounds
-        stmt = stmt.offset(start).limit(end - start + 1)
+        limit = end - start + 1
 
-    rows = list(session.exec(stmt).all())
+    rows = repo.list_ordered(offset=start, limit=limit)
     payload = [to_link_read(link) for link in rows]
     n = len(payload)
     cr = _content_range(total, had_range=bounds is not None, start=start, n=n)
@@ -91,25 +88,27 @@ def list_links(
 )
 def create_link(
     body: LinkCreate,
-    session: Session = Depends(get_session),
+    repo: LinkRepository = Depends(get_link_repository),
 ) -> LinkRead:
-    link = Link(original_url=body.original_url, short_name=body.short_name)
-    session.add(link)
     try:
-        session.commit()
-    except IntegrityError:
-        session.rollback()
+        link = repo.create(
+            original_url=body.original_url,
+            short_name=body.short_name,
+        )
+    except DuplicateShortNameError:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="Short name already exists",
         ) from None
-    session.refresh(link)
     return to_link_read(link)
 
 
 @router.get("/{link_id}", response_model=LinkRead)
-def get_link(link_id: int, session: Session = Depends(get_session)) -> LinkRead:
-    link = session.get(Link, link_id)
+def get_link(
+    link_id: int,
+    repo: LinkRepository = Depends(get_link_repository),
+) -> LinkRead:
+    link = repo.get_by_id(link_id)
     if link is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -122,40 +121,37 @@ def get_link(link_id: int, session: Session = Depends(get_session)) -> LinkRead:
 def update_link(
     link_id: int,
     body: LinkUpdate,
-    session: Session = Depends(get_session),
+    repo: LinkRepository = Depends(get_link_repository),
 ) -> LinkRead:
-    link = session.get(Link, link_id)
+    link = repo.get_by_id(link_id)
     if link is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Link not found",
         )
-    link.original_url = body.original_url
-    link.short_name = body.short_name
-    session.add(link)
     try:
-        session.commit()
-    except IntegrityError:
-        session.rollback()
+        link = repo.update(
+            link,
+            original_url=body.original_url,
+            short_name=body.short_name,
+        )
+    except DuplicateShortNameError:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="Short name already exists",
         ) from None
-    session.refresh(link)
     return to_link_read(link)
 
 
 @router.delete("/{link_id}")
 def delete_link(
     link_id: int,
-    session: Session = Depends(get_session),
+    repo: LinkRepository = Depends(get_link_repository),
 ) -> Response:
-    link = session.get(Link, link_id)
-    if link is None:
+    deleted = repo.delete_by_id(link_id)
+    if not deleted:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Link not found",
         )
-    session.delete(link)
-    session.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
